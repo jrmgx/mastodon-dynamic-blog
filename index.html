@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<!-- If you want you can update the lang attribute to match the language of your page -->
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- On the next line you can change the text to put anything you want: that will be the title of your page -->
+  <title>Blog</title>
+  <!-- On the next line you must update the href attribute with your own Mastodon server and username (keep the @ and the .rss in href) -->
+  <link href="https://SERVER/@USERNAME.rss" rel="alternate" type="application/rss+xml"
+    title="RSS Feed (from Mastodon)">
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+CiAgPGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iNTAiIGZpbGw9IiNlMGUwZTAiLz4KICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjM4IiByPSIxNCIgZmlsbD0iI2M0YzRjNCIvPgogIDxwYXRoIGQ9Ik0yMyw3NiBDMjMsNjEgNzcsNjEgNzcsNzYgQzc3LDkxIDIzLDkxIDIzLDc2IFoiIGZpbGw9IiNjNGM0YzQiLz4KPC9zdmc+">
+  <link rel="stylesheet" href="style.css?v=202501200945">
+</head>
+
+<body>
+  <!-- This is a static top menu, you can use it to add links if you want -->
+  <!-- Remove this line
+  <nav class="nav">
+    <ul>
+      <li>
+        <a href="https://example.org" target="_blank">First Entry</a>
+      </li>
+      <li>
+        <a href="https://example.org" target="_blank">Second Entry</a>
+      </li>
+    </ul>
+  </nav>
+  And that line, that way the menu will appear -->
+  <header class="hero">
+    <div>
+      <img
+        src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+CiAgPGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iNTAiIGZpbGw9IiNlMGUwZTAiLz4KICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjM4IiByPSIxNCIgZmlsbD0iI2M0YzRjNCIvPgogIDxwYXRoIGQ9Ik0yMyw3NiBDMjMsNjEgNzcsNjEgNzcsNzYgQzc3LDkxIDIzLDkxIDIzLDc2IFoiIGZpbGw9IiNjNGM0YzQiLz4KPC9zdmc+"
+        alt="Profile picture">
+      <div class="hero-text"></div>
+    </div>
+  </header>
+  <main>
+    <div id="loader" class="loader"></div>
+    <div id="posts" class="posts-container"></div>
+    <div class="pagination">
+      <button id="loadMore" onclick="loadMorePosts()">Load More</button>
+    </div>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+  <script src="config.js?v=202501200945"></script>
+  <script src="app.js?v=202501200945"></script>
+</body>
+
+</html>
