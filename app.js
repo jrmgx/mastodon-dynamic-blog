@@ -45,6 +45,15 @@ function renderPostContent(post, isReply = false) {
   tempDiv.innerHTML = post.content;
   if (withMarkdown) {
     tempDiv.normalize();
+    // Remove links where the text is an URL, but keep the text.
+    // This is to allow the markdown link syntax to work.
+    tempDiv.querySelectorAll('a').forEach(link => {
+      const isUrlText = /^(https?:\/\/|www\.)/.test(link.textContent);
+      if (isUrlText) {
+        link.replaceWith(link.textContent);
+      }
+    });
+
     // Remove paragraphs and break lines
     const markdown = tempDiv.innerHTML
       // Convert <p> tags to double newlines
@@ -53,7 +62,7 @@ function renderPostContent(post, isReply = false) {
       .replace(/<br\s*\/?>/g, '\n')
       .trim();
 
-    tempDiv.innerHTML = markdownit({ html: true }).render(markdown);
+    tempDiv.innerHTML = markdownit({ html: true, linkify: true }).render(markdown);
   }
 
   // Remove `blogHashtag` hashtag
