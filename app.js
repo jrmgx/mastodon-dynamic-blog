@@ -215,23 +215,6 @@ function updatePaginationControls() {
   if (existingPagination) {
     existingPagination.remove();
   }
-
-  const paginationHtml = `
-    <div class="pagination">
-      ${nextPageUrl ? '<button id="load-more">Load More Posts</button>' : ''}
-    </div>
-  `;
-
-  document.getElementById('posts').insertAdjacentHTML('afterend', paginationHtml);
-
-  const loadMoreButton = document.getElementById('load-more');
-  if (loadMoreButton) {
-    loadMoreButton.addEventListener('click', () => {
-      if (nextPageUrl) {
-        fetchPosts(nextPageUrl);
-      }
-    });
-  }
 }
 
 async function fetchPosts() {
@@ -257,6 +240,18 @@ async function fetchPosts() {
   } finally {
     isLoading = false;
     hideLoader();
+  }
+}
+
+function handleScroll() {
+  if (!nextPageUrl || isLoading) return;
+
+  const scrollPosition = window.innerHeight + window.scrollY;
+  const bodyHeight = document.documentElement.scrollHeight;
+
+  // Load more when user is near the bottom (100px threshold)
+  if (bodyHeight - scrollPosition < 100) {
+    fetchPosts(nextPageUrl);
   }
 }
 
@@ -312,4 +307,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   fetchProfile();
   fetchPosts();
   applyPostCss();
+
+  window.addEventListener('scroll', handleScroll);
 });
