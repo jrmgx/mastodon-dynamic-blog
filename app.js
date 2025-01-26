@@ -217,7 +217,7 @@ function updatePaginationControls() {
   }
 }
 
-async function fetchPosts() {
+async function fetchPosts(url = null) {
   if (isLoading) return;
   if (!accountId) return;
 
@@ -225,7 +225,7 @@ async function fetchPosts() {
     isLoading = true;
     showLoader();
 
-    const fetchUrl = `https://${server}/api/v1/accounts/${accountId}/statuses`;
+    const fetchUrl = url || `https://${server}/api/v1/accounts/${accountId}/statuses`;
     const response = await fetch(fetchUrl);
     const posts = await response.json();
 
