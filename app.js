@@ -1,9 +1,14 @@
+// Variables to keep track of page loading and user information
 let currentPage = 1;
 let nextPageUrl = null;
 let isLoading = false;
 let accountId = null;
+// Store replies that we find before their parent posts:
+// this could happen when the reply of a post is on a given page
+// but the main post is on the next one.
 let orphanedReplies = new Map();
 
+// Shows a loading spinner when content is being fetched
 function showLoader() {
   const loader = document.querySelector('.loader') || document.createElement('div');
   loader.className = 'loader';
@@ -18,6 +23,8 @@ function hideLoader() {
   }
 }
 
+// Finds a user's account ID based on their username:
+// the account ID is used to get everything from the API.
 async function lookupAccount(username) {
   try {
     const response = await fetch(`https://${server}/api/v1/accounts/lookup?acct=${username}`);
@@ -29,6 +36,8 @@ async function lookupAccount(username) {
   }
 }
 
+// Extracts navigation links from the response headers:
+// this is used for pagination (loading more posts)
 function getLinkFromHeader(linkHeader, rel) {
   if (!linkHeader) return null;
 
@@ -40,10 +49,14 @@ function getLinkFromHeader(linkHeader, rel) {
   return requestedLink.match(/<(.+)>/)[1];
 }
 
-// Recursively render post content with replies
+// Takes a post and formats its content for display
+// If isReply is true, it will be styled as a reply to another post
 function renderPostContent(post, isReply = false) {
+  // Create a temporary container to work with the HTML
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = post.content;
+
+  // If markdown is enabled, convert the content to proper markdown
   if (withMarkdown) {
     tempDiv.normalize();
     // Remove links where the text is an URL, but keep the text.
@@ -66,7 +79,7 @@ function renderPostContent(post, isReply = false) {
     tempDiv.innerHTML = markdownit({ html: true, linkify: true }).render(markdown);
   }
 
-  // Remove `blogHashtag` hashtag
+  // Remove the blog hashtag from the content since we don't want to display it
   tempDiv.querySelectorAll('a').forEach((link) => {
     if (link.textContent.toLowerCase() === `#${blogHashtag}`) {
       link.remove();
@@ -76,12 +89,13 @@ function renderPostContent(post, isReply = false) {
     }
   });
 
+  // Build the HTML structure for the post
   let content = `
     ${isReply ? '<div class="post-reply">' : ''}
     ${tempDiv.innerHTML}
   `;
 
-  // Add media attachments
+  // Add any images that were attached to the post
   if (post.media_attachments && post.media_attachments.length > 0) {
     content += post.media_attachments
       .map((media) => {
@@ -93,7 +107,7 @@ function renderPostContent(post, isReply = false) {
       .join('');
   }
 
-  // Only add owner replies inline
+  // Add replies from the post owner inline with the post
   if (post.replies && post.replies.length > 0) {
     const ownerReplies = post.replies.filter((reply) => reply.account.id === accountId);
     ownerReplies.forEach((reply) => {
@@ -105,28 +119,34 @@ function renderPostContent(post, isReply = false) {
   return content;
 }
 
-async function fetchReplies(statusId) {
+// Fetches all replies to a specific post: those will be treated as comments
+async function fetchRepliesComments(statusId) {
   try {
     const response = await fetch(`https://${server}/api/v1/statuses/${statusId}/context`);
     const data = await response.json();
     // We only want replies that come after our post
-    return data.descendants || [];
+    const replies = data.descendants || [];
+    // Only replies that are not our own
+    return replies.filter((reply) => reply.account.id !== accountId);
   } catch (error) {
     console.error('Error fetching replies', error);
     return [];
   }
 }
 
+// Takes an array of posts and displays them on the page
 async function displayPosts(posts) {
   const postsContainer = document.getElementById('posts');
 
+  // Clear the container if this is the first page
   if (currentPage === 1) {
     postsContainer.innerHTML = '';
   }
 
-  // First, build a map of all posts
+  // Create a map to organize posts and their replies
   const postsMap = new Map();
   posts.forEach((post) => {
+    // Don't include reposted content (reblog)
     if (!post.reblog) {
       postsMap.set(post.id, {
         ...post,
@@ -135,7 +155,8 @@ async function displayPosts(posts) {
     }
   });
 
-  // Check if we can attach any orphaned replies to the new posts
+  // We may have some replies from previous pages:
+  // check if we can attach any orphaned replies to the new posts
   postsMap.forEach((post) => {
     const orphanedChildren = orphanedReplies.get(post.id);
     if (orphanedChildren) {
@@ -144,7 +165,7 @@ async function displayPosts(posts) {
     }
   });
 
-  // Build conversation trees
+  // Organize posts into conversations (original posts and their replies)
   const conversations = [];
   posts.forEach((post) => {
     if (post.reblog) return;
@@ -171,11 +192,13 @@ async function displayPosts(posts) {
     }
   });
 
-  // Render each conversation
+  // Display each conversation on the page
   for (const conversation of conversations) {
+    // Create an article element for the post
     const postElement = document.createElement('article');
     postElement.className = 'post';
 
+    // Format the date for display
     const date = new Date(conversation.created_at);
     const formattedDate = date.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -183,33 +206,32 @@ async function displayPosts(posts) {
       day: 'numeric',
     });
 
-    // Render the main post content
+    // Build the HTML for the post
     let postHtml = `
       <div class="post-date"><a href="${conversation.url}" class="post-link" target="_blank">${formattedDate}</a></div>
       <div class="post-content">${renderPostContent(conversation)}</div>
     `;
 
-    // Fetch and add replies
-    const replies = withComments ? await fetchReplies(conversation.id) : [];
-    const nonOwnerReplies = replies.filter((reply) => reply.account.id !== accountId);
-
-    if (nonOwnerReplies.length > 0) {
-      postHtml += `<div class="post-comments">
-        <h3>Comments (${nonOwnerReplies.length})</h3>
-        ${nonOwnerReplies.map((reply) => `
-          <div class="post-comment">
-            <div class="comment-author">
-              <img src="${reply.account.avatar}" alt="${reply.account.display_name}" class="comment-avatar">
-              <strong>${reply.account.display_name}</strong>
-            </div>
-            <div class="comment-content">${reply.content}</div>
-          </div>
-      `).join('')}
-      </div>`;
-    }
-
-    // Add comment button after comments
+    // If comments are enabled, fetch and display them
     if (withComments) {
+      const replies = await fetchRepliesComments(conversation.id);
+
+      if (replies.length > 0) {
+        postHtml += `<div class="post-comments">
+          <h3>Comments (${replies.length})</h3>
+          ${replies.map((reply) => `
+            <div class="post-comment">
+              <div class="comment-author">
+                <img src="${reply.account.avatar}" alt="${reply.account.display_name}" class="comment-avatar">
+                <strong>${reply.account.display_name}</strong>
+              </div>
+              <div class="comment-content">${reply.content}</div>
+            </div>
+        `).join('')}
+        </div>`;
+      }
+
+      // Add comment button after comments
       postHtml += `
         <div class="post-actions">
           <a href="${conversation.url}" class="post-link" target="_blank">💬 Comment on Mastodon</a>
@@ -224,6 +246,7 @@ async function displayPosts(posts) {
   currentPage++;
 }
 
+// Updates the pagination controls (for loading more posts)
 function updatePaginationControls() {
   const existingPagination = document.querySelector('.pagination');
   if (existingPagination) {
@@ -231,6 +254,7 @@ function updatePaginationControls() {
   }
 }
 
+// Fetches posts from the server
 async function fetchPosts(url = null) {
   if (isLoading) return;
   if (!accountId) return;
@@ -257,6 +281,8 @@ async function fetchPosts(url = null) {
   }
 }
 
+// Checks if user has scrolled near the bottom of the page:
+// if so, loads more posts automatically
 function handleScroll() {
   if (!nextPageUrl || isLoading) return;
 
@@ -269,6 +295,7 @@ function handleScroll() {
   }
 }
 
+// Updates the profile section at the top of the page
 function updateHeroText(profile) {
   const heroText = document.querySelector('.hero-text');
   if (heroText && profile.note) {
@@ -295,6 +322,7 @@ function updateHeroText(profile) {
   }
 }
 
+// Fetches the user's profile information
 async function fetchProfile() {
   try {
     const response = await fetch(`https://${server}/api/v1/accounts/${accountId}`);
@@ -305,22 +333,28 @@ async function fetchProfile() {
   }
 }
 
+// Hides certain elements using CSS:
+// it is a bit hacky but it allows to customize a bit if needed
 function applyPostCss() {
   const style = document.createElement('style');
   style.textContent = `a[href="https://${server}/@${username}"] { display: none; }`;
   document.head.appendChild(style);
 }
 
+// When the page loads, start everything up
 document.addEventListener('DOMContentLoaded', async () => {
+  // Look up the user's account ID
   accountId = await lookupAccount(username);
   if (!accountId) {
     document.getElementById('posts').innerHTML = '<p>Error: Could not find the specified account.</p>';
     return;
   }
 
+  // Load the profile and first page of posts
   fetchProfile();
   fetchPosts();
   applyPostCss();
 
+  // Set up infinite scrolling
   window.addEventListener('scroll', handleScroll);
 });
