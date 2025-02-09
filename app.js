@@ -2,6 +2,7 @@ let currentPage = 1;
 let nextPageUrl = null;
 let isLoading = false;
 let accountId = null;
+let orphanedReplies = new Map();
 
 function showLoader() {
   const loader = document.querySelector('.loader') || document.createElement('div');
@@ -134,6 +135,15 @@ async function displayPosts(posts) {
     }
   });
 
+  // Check if we can attach any orphaned replies to the new posts
+  postsMap.forEach((post) => {
+    const orphanedChildren = orphanedReplies.get(post.id);
+    if (orphanedChildren) {
+      post.replies = [...orphanedChildren, ...(post.replies || [])];
+      orphanedReplies.delete(post.id);
+    }
+  });
+
   // Build conversation trees
   const conversations = [];
   posts.forEach((post) => {
@@ -147,6 +157,10 @@ async function displayPosts(posts) {
       if (parentPost && post.account.id === accountId) {
         if (!parentPost.replies) parentPost.replies = [];
         parentPost.replies.push(postWithReplies);
+      } else if (post.account.id === accountId) {
+        // Store this reply as orphaned if we can't find its parent
+        const orphanedSiblings = orphanedReplies.get(post.in_reply_to_id) || [];
+        orphanedReplies.set(post.in_reply_to_id, [...orphanedSiblings, postWithReplies]);
       }
     } else {
       // If it's a root post (not a reply), check for specified blogHashtag
